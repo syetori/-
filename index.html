@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <title>Паровозик – 1-ден 10-ға дейін</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: #222;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .game-wrapper {
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+      background: #4b6ea8;
+    }
+
+    .game-area {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      /* TODO: сюда поставь фон с рельсами */
+      background-image: url("BACKGROUND_IMAGE_URL_HERE");
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* Полупрозрачная подсказка сверху (можно убрать при желании) */
+    .hint-bar {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.5);
+      font-size: 14px;
+      z-index: 5;
+    }
+
+    /* Зона рельс и паровоза (центр по высоте) */
+    .rails-zone {
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 40%;
+      height: 22%;
+      /* Рельсы обычно будут на фоне, тут просто зона для слотов */
+    }
+
+    /* Паровоз спереди слева */
+    #train {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 14%;
+      height: 80%;
+      /* TODO: картинка паровоза */
+      background-image: url("TRAIN_IMAGE_URL_HERE");
+      background-size: contain;
+      background-position: center bottom;
+      background-repeat: no-repeat;
+      z-index: 3;
+    }
+
+    /* Облако-диалог над паровозом */
+    .speech-bubble {
+      position: absolute;
+      bottom: 100%;
+      left: 5%;
+      transform: translateY(-12px);
+      max-width: 260px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.9);
+      color: #222;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.3;
+      z-index: 6;
+    }
+
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 25px;
+      border-width: 10px 10px 0 10px;
+      border-style: solid;
+      border-color: rgba(255,255,255,0.9) transparent transparent transparent;
+    }
+
+    /* Контейнер слотов за паровозом */
+    .slots-row {
+      position: absolute;
+      left: 14%;
+      right: 0;
+      bottom: 8%;
+      height: 60%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 2%;
+      z-index: 1;
+    }
+
+    .slot {
+      position: relative;
+      width: 8%;
+      height: 55%;
+      border-radius: 8px;
+      border: 2px dashed rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.15);
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+
+    .slot.correct {
+      border-color: rgba(0,255,127,0.9);
+      background: rgba(0,0,0,0.35);
+      transform: scale(1.05);
+    }
+
+    .slot-number {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: #fff;
+      text-shadow: 0 0 3px rgba(0,0,0,0.7);
+    }
+
+    /* Вагоны */
+    .wagon {
+      position: absolute;
+      width: 90px;   /* фиксированный размер, стабильный для всех PNG */
+      height: 60px;  /* фиксированный размер, стабильный для всех PNG */
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ffb347, #ff7747);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 22px;
+      color: #fff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      cursor: grab;
+      z-index: 4;
+      transition: box-shadow 0.15s, transform 0.1s;
+      /* TODO: сюда можно добавить фон-вагон PNG
+         background-image: url("WAGON_1.png");
+         background-size: contain;
+         background-position: center;
+         background-repeat: no-repeat;
+         (номер тогда можно оставить или убрать)
+      */
+    }
+
+    .wagon:active {
+      cursor: grabbing;
+      transform: scale(1.05);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.6);
+    }
+
+    .wagon.locked {
+      cursor: default;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+      transform: none !important;
+    }
+
+    /* Оверлей с видео */
+    .video-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    .video-overlay.active {
+      display: flex;
+    }
+
+    .video-wrapper {
+      width: 70%;
+      max-width: 800px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0,0,0,0.9);
+      background: #000;
+      position: relative;
+    }
+
+    #winVideo {
+      width: 100%;
+      display: block;
+    }
+
+    /* Экран победы */
+    .win-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(0,0,0,0.2), rgba(0,0,0,0.8));
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+    }
+
+    .win-overlay.active {
+      display: flex;
+    }
+
+    .win-title {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      animation: pop 0.8s ease-out, glow 1.4s ease-in-out infinite alternate;
+    }
+
+    .win-subtitle {
+      font-size: 20px;
+      margin-bottom: 28px;
+      opacity: 0.9;
+    }
+
+    .btn-restart {
+      padding: 12px 26px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #00d084, #00b894);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-restart:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.7);
+    }
+
+    .btn-restart:active {
+      transform: translateY(0);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+    }
+
+    /* Простейший салют */
+    .firework {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+      pointer-events: none;
+      z-index: 30;
+      box-shadow:
+        0 0 0 0 rgba(255,255,255,0.9),
+        0 0 0 0 rgba(255,255,0,0.9),
+        0 0 0 0 rgba(0,255,255,0.9),
+        0 0 0 0 rgba(255,0,255,0.9);
+      animation: boom 0.8s ease-out forwards;
+    }
+
+    @keyframes boom {
+      0% {
+        transform: translate(-50%, -50%) scale(0.4);
+        opacity: 1;
+        box-shadow:
+          0 0 0 0 rgba(255,255,255,0.9),
+          0 0 0 0 rgba(255,255,0,0.9),
+          0 0 0 0 rgba(0,255,255,0.9),
+          0 0 0 0 rgba(255,0,255,0.9);
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+        box-shadow:
+          0 -40px 0 0 rgba(255,255,255,0),
+          35px -20px 0 0 rgba(255,255,0,0),
+          -35px -20px 0 0 rgba(0,255,255,0),
+          0 40px 0 0 rgba(255,0,255,0);
+      }
+    }
+
+    @keyframes pop {
+      0% { transform: scale(0.6); opacity: 0; }
+      60% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes glow {
+      0% { text-shadow: 0 0 10px rgba(255,255,255,0.4); }
+      100% { text-shadow: 0 0 25px rgba(255,255,0,0.9); }
+    }
+
+    /* Чтобы вагоны не вылезали за пределы */
+    .game-area {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <div class="game-area" id="gameArea">
+      <div class="hint-bar">
+        Вагондарды 1-ден 10-ға дейін дұрыс ретпен рельске қойып көр!
+      </div>
+
+      <div class="rails-zone" id="railsZone">
+        <div id="train"></div>
+        <div class="speech-bubble" id="speechBubble">
+          Көмектесіңдерші балалар, вагондарым жан-жаққа шашылып кетті...
+        </div>
+
+        <div class="slots-row" id="slotsRow">
+          <!-- Слоты создаются скриптом -->
+        </div>
+      </div>
+
+      <!-- Вагоны создаются скриптом -->
+      
+      <!-- Оверлей с видео благодарности -->
+      <div class="video-overlay" id="videoOverlay">
+        <div class="video-wrapper">
+          <!-- TODO: поставь сюда своё видео (примерно 8 секунд),
+               можно удалить controls если они не нужны -->
+          <video id="winVideo" preload="auto">
+            <source src="https://files.catbox.moe/b3j3rh.mp4" type="video/mp4" />
+            Браузер видеоны қолдамайды.
+          </video>
+        </div>
+      </div>
+
+      <!-- Экран победы -->
+      <div class="win-overlay" id="winOverlay">
+        <div class="win-title">Жеңіс!!!</div>
+        <div class="win-subtitle">Паровозикке барлық вагонды тауып бердің!</div>
+        <button class="btn-restart" id="restartBtn">Басынан бастау</button>
+      </div>
+
+      <!-- Звук за правильную установку (тыдынь) -->
+      <!-- TODO: подставь короткий "ding" звук -->
+      <audio id="dingSound" preload="auto">
+        <source src="DING_SOUND_URL_HERE.mp3" type="audio/mpeg" />
+      </audio>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const NUM_WAGONS = 10;
+      const wagonSize = { width: 90, height: 60 }; // должен совпадать с CSS
+      const wagons = [];
+      const slots = [];
+
+      let placedCount = 0;
+      let dragging = null;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      const gameArea = document.getElementById('gameArea');
+      const railsZone = document.getElementById('railsZone');
+      const slotsRow = document.getElementById('slotsRow');
+      const dingSound = document.getElementById('dingSound');
+      const videoOverlay = document.getElementById('videoOverlay');
+      const winVideo = document.getElementById('winVideo');
+      const winOverlay = document.getElementById('winOverlay');
+      const restartBtn = document.getElementById('restartBtn');
+      const speechBubble = document.getElementById('speechBubble');
+
+      // Создаём слоты и подписи
+      function createSlots() {
+        slotsRow.innerHTML = "";
+        slots.length = 0;
+        for (let i = 1; i <= NUM_WAGONS; i++) {
+          const slot = document.createElement('div');
+          slot.className = 'slot';
+          slot.dataset.number = i;
+
+          const label = document.createElement('div');
+          label.className = 'slot-number';
+          label.textContent = i;
+
+          slot.appendChild(label);
+          slotsRow.appendChild(slot);
+          slots.push(slot);
+        }
+      }
+
+      // Создаём вагоны
+      function createWagons() {
+        // удалить старые
+        for (const w of wagons) {
+          if (w.element && w.element.parentNode) {
+            w.element.parentNode.removeChild(w.element);
+          }
+        }
+        wagons.length = 0;
+
+        for (let i = 1; i <= NUM_WAGONS; i++) {
+          const wagonEl = document.createElement('div');
+          wagonEl.className = 'wagon';
+          wagonEl.textContent = i;
+          wagonEl.dataset.number = i;
+          wagonEl.dataset.locked = "false";
+
+          // TODO: если нужны разные PNG для каждого вагона, можно сделать так:
+          // wagonEl.style.backgroundImage = 'url("WAGON_' + i + '_IMAGE_URL_HERE.png")';
+          // wagonEl.style.backgroundSize = 'contain';
+          // wagonEl.style.backgroundRepeat = 'no-repeat';
+          // wagonEl.style.backgroundPosition = 'center';
+
+          gameArea.appendChild(wagonEl);
+          wagons.push({ number: i, element: wagonEl });
+        }
+      }
+
+      // Рандомные позиции вагонов (сверху и снизу, НЕ по центру, где рельсы)
+      function randomizeWagonPositions() {
+        const areaRect = gameArea.getBoundingClientRect();
+        const railsRect = railsZone.getBoundingClientRect();
+
+        const margin = 10;
+
+        wagons.forEach(w => {
+          const el = w.element;
+          el.classList.remove('locked');
+          el.dataset.locked = "false";
+
+          // случайно верхняя или нижняя зона
+          const placeOnTop = Math.random() < 0.5;
+          let x, y;
+
+          const minX = areaRect.left + margin;
+          const maxX = areaRect.right - margin - wagonSize.width;
+
+          if (placeOnTop) {
+            const minY = areaRect.top + margin;
+            const maxY = railsRect.top - margin - wagonSize.height;
+            y = randomBetween(minY, maxY);
+          } else {
+            const minY = railsRect.bottom + margin;
+            const maxY = areaRect.bottom - margin - wagonSize.height;
+            y = randomBetween(minY, maxY);
+          }
+
+          x = randomBetween(minX, maxX);
+
+          const gameRect = gameArea.getBoundingClientRect();
+          el.style.left = (x - gameRect.left) + "px";
+          el.style.top = (y - gameRect.top) + "px";
+        });
+      }
+
+      function randomBetween(min, max) {
+        if (max < min) max = min;
+        return Math.random() * (max - min) + min;
+      }
+
+      // Drag & drop (мышь + тач)
+      function initDragging() {
+        gameArea.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+      }
+
+      function onPointerDown(e) {
+        const target = e.target.closest('.wagon');
+        if (!target) return;
+        if (target.dataset.locked === "true") return;
+
+        dragging = target;
+        dragging.setPointerCapture(e.pointerId);
+
+        const rect = dragging.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+
+        dragging.style.zIndex = 10;
+      }
+
+      function onPointerMove(e) {
+        if (!dragging) return;
+        const areaRect = gameArea.getBoundingClientRect();
+
+        let newLeft = e.clientX - areaRect.left - offsetX;
+        let newTop = e.clientY - areaRect.top - offsetY;
+
+        // ограничиваем внутри поля
+        newLeft = Math.max(0, Math.min(areaRect.width - wagonSize.width, newLeft));
+        newTop = Math.max(0, Math.min(areaRect.height - wagonSize.height, newTop));
+
+        dragging.style.left = newLeft + "px";
+        dragging.style.top = newTop + "px";
+      }
+
+      function onPointerUp(e) {
+        if (!dragging) return;
+
+        const wagon = dragging;
+        const wagonNumber = parseInt(wagon.dataset.number, 10);
+
+        let snapped = false;
+        const wagonRect = wagon.getBoundingClientRect();
+
+        for (const slot of slots) {
+          const slotNumber = parseInt(slot.dataset.number, 10);
+          if (slotNumber !== wagonNumber) continue;
+
+          const slotRect = slot.getBoundingClientRect();
+
+          const wagonCenter = {
+            x: wagonRect.left + wagonRect.width / 2,
+            y: wagonRect.top + wagonRect.height / 2
+          };
+          const slotCenter = {
+            x: slotRect.left + slotRect.width / 2,
+            y: slotRect.top + slotRect.height / 2
+          };
+
+          const dx = wagonCenter.x - slotCenter.x;
+          const dy = wagonCenter.y - slotCenter.y;
+          const distance = Math.sqrt(dx*dx + dy*dy);
+
+          const snapRadius = Math.min(slotRect.width, slotRect.height) * 0.8;
+
+          if (distance < snapRadius) {
+            // Снэп в слот
+            const areaRect = gameArea.getBoundingClientRect();
+            const left = slotCenter.x - areaRect.left - wagonRect.width / 2;
+            const top = slotCenter.y - areaRect.top - wagonRect.height / 2;
+
+            wagon.style.left = left + "px";
+            wagon.style.top = top + "px";
+            wagon.dataset.locked = "true";
+            wagon.classList.add('locked');
+            slot.classList.add('correct');
+            snapped = true;
+
+            placedCount++;
+            playDing();
+            spawnFirework(slotCenter.x - areaRect.left, slotCenter.y - areaRect.top);
+
+            if (placedCount === NUM_WAGONS) {
+              onAllPlaced();
+            }
+            break;
+          }
+        }
+
+        // вернуть z-index
+        wagon.style.zIndex = 4;
+        dragging = null;
+      }
+
+      function playDing() {
+        if (!dingSound) return;
+        try {
+          dingSound.currentTime = 0;
+          dingSound.play();
+        } catch (e) {
+          // если браузер не даёт автоплей
+        }
+      }
+
+      function spawnFirework(x, y) {
+        const fw = document.createElement('div');
+        fw.className = 'firework';
+        fw.style.left = x + "px";
+        fw.style.top = y + "px";
+        gameArea.appendChild(fw);
+
+        setTimeout(() => {
+          if (fw.parentNode) fw.parentNode.removeChild(fw);
+        }, 900);
+      }
+
+      function onAllPlaced() {
+        // убираем фразу помощи, он уже благодарит в видео
+        if (speechBubble) {
+          speechBubble.style.display = 'none';
+        }
+
+        // Показываем видео
+        videoOverlay.classList.add('active');
+
+        if (winVideo) {
+          try {
+            winVideo.currentTime = 0;
+            winVideo.play();
+          } catch (e) {
+            // если автоплей заблокирован – ок, юзер сам запустит
+          }
+
+          winVideo.onended = function() {
+            videoOverlay.classList.remove('active');
+            showWinOverlay();
+          };
+        } else {
+          // на всякий случай, если видео нет – просто сразу показываем победу
+          showWinOverlay();
+        }
+      }
+
+      function showWinOverlay() {
+        winOverlay.classList.add('active');
+        // бонус: несколько салютов
+        const areaRect = gameArea.getBoundingClientRect();
+        for (let i = 0; i < 8; i++) {
+          setTimeout(() => {
+            const x = randomBetween(areaRect.width * 0.15, areaRect.width * 0.85);
+            const y = randomBetween(areaRect.height * 0.15, areaRect.height * 0.6);
+            spawnFirework(x, y);
+          }, i * 180);
+        }
+      }
+
+      function resetGame() {
+        placedCount = 0;
+        winOverlay.classList.remove('active');
+
+        // сброс стилей слотов
+        slots.forEach(slot => slot.classList.remove('correct'));
+
+        // показываем пузырь снова
+        if (speechBubble) {
+          speechBubble.style.display = '';
+        }
+
+        // раскидываем вагоны по новым рандомным местам
+        randomizeWagonPositions();
+      }
+
+      // Кнопка "Басынан бастау"
+      restartBtn.addEventListener('click', resetGame);
+
+      // Инициализация
+      window.addEventListener('load', () => {
+        createSlots();
+        createWagons();
+        randomizeWagonPositions();
+        initDragging();
+      });
+
+      // при ресайзе окна слегка поправим позиции (чтоб дальше не жило совсем неправильно)
+      window.addEventListener('resize', () => {
+        // просто раскидаем заново
+        randomizeWagonPositions();
+      });
+    })();
+  </script>
+</body>
+</html>
