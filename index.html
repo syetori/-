@@ -33,7 +33,7 @@
       background: #4b6ea8;
     }
 
-    .game-area {
+   .game-area {
       position: relative;
       width: 100%;
       height: 100%;
@@ -41,7 +41,9 @@
       background-image: url("BACKGROUND_IMAGE_URL_HERE");
       background-size: cover;
       background-position: center;
+      touch-action: none; /* <- ВАЖНО ДЛЯ ПЛАНШЕТА */
     }
+
 
     /* Полупрозрачная подсказка сверху (можно убрать при желании) */
     .hint-bar {
@@ -172,6 +174,7 @@
          background-repeat: no-repeat;
          (номер тогда можно оставить или убрать)
       */
+        touch-action: none;
     }
 
     .wagon:active {
@@ -378,11 +381,12 @@
       const wagonSize = { width: 90, height: 60 }; // должен совпадать с CSS
       const wagons = [];
       const slots = [];
-
+      
       let placedCount = 0;
       let dragging = null;
       let offsetX = 0;
       let offsetY = 0;
+      let activePointerId = null; // <- добавили
 
       const gameArea = document.getElementById('gameArea');
       const railsZone = document.getElementById('railsZone');
@@ -445,38 +449,61 @@
       function randomizeWagonPositions() {
         const areaRect = gameArea.getBoundingClientRect();
         const railsRect = railsZone.getBoundingClientRect();
-
+        const bubble = document.getElementById('speechBubble');
+        const bubbleRect = bubble ? bubble.getBoundingClientRect() : null;
+      
         const margin = 10;
-
+      
         wagons.forEach(w => {
           const el = w.element;
           el.classList.remove('locked');
           el.dataset.locked = "false";
-
-          // случайно верхняя или нижняя зона
+      
           const placeOnTop = Math.random() < 0.5;
           let x, y;
-
+      
           const minX = areaRect.left + margin;
           const maxX = areaRect.right - margin - wagonSize.width;
-
+      
           if (placeOnTop) {
-            const minY = areaRect.top + margin;
-            const maxY = railsRect.top - margin - wagonSize.height;
+            // верхняя зона, но не залезаем на диалоговое окно
+            let minY = areaRect.top + margin;
+            let maxY = railsRect.top - margin - wagonSize.height;
+      
+            if (bubbleRect) {
+              // пробуем ограничить верх так, чтобы не пересечься с пузырём
+              const candidateMaxY = bubbleRect.top - margin - wagonSize.height;
+              if (candidateMaxY > minY) {
+                maxY = candidateMaxY;
+              }
+            }
+      
+            if (maxY < minY) {
+              // если вдруг места почти нет — откатываемся к старой логике
+              maxY = railsRect.top - margin - wagonSize.height;
+            }
+      
             y = randomBetween(minY, maxY);
           } else {
+            // нижняя зона как раньше
             const minY = railsRect.bottom + margin;
-            const maxY = areaRect.bottom - margin - wagonSize.height;
+            let maxY = areaRect.bottom - margin - wagonSize.height;
+      
+            if (maxY < minY) {
+              maxY = minY;
+            }
+      
             y = randomBetween(minY, maxY);
           }
-
+      
           x = randomBetween(minX, maxX);
-
+      
           const gameRect = gameArea.getBoundingClientRect();
           el.style.left = (x - gameRect.left) + "px";
           el.style.top = (y - gameRect.top) + "px";
         });
       }
+
 
       function randomBetween(min, max) {
         if (max < min) max = min;
@@ -485,56 +512,85 @@
 
       // Drag & drop (мышь + тач)
       function initDragging() {
+        // Слушаем всё в пределах игрового поля
         gameArea.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
+        gameArea.addEventListener('pointermove', onPointerMove);
+        gameArea.addEventListener('pointerup', onPointerUp);
+        gameArea.addEventListener('pointercancel', onPointerUp);
       }
+
 
       function onPointerDown(e) {
         const target = e.target.closest('.wagon');
         if (!target) return;
         if (target.dataset.locked === "true") return;
-
+      
+        e.preventDefault(); // не даём странице скроллиться/зумить
+      
         dragging = target;
-        dragging.setPointerCapture(e.pointerId);
-
+        activePointerId = e.pointerId;
+      
         const rect = dragging.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
-
+      
         dragging.style.zIndex = 10;
+      
+        // захватываем события этого пальца/стилуса
+        if (dragging.setPointerCapture) {
+          dragging.setPointerCapture(activePointerId);
+        }
       }
-
+      
+      
       function onPointerMove(e) {
         if (!dragging) return;
+        if (e.pointerId !== activePointerId) return;
+      
+        e.preventDefault(); // блокируем скролл при движении
+      
         const areaRect = gameArea.getBoundingClientRect();
-
+      
         let newLeft = e.clientX - areaRect.left - offsetX;
         let newTop = e.clientY - areaRect.top - offsetY;
-
+      
         // ограничиваем внутри поля
-        newLeft = Math.max(0, Math.min(areaRect.width - wagonSize.width, newLeft));
-        newTop = Math.max(0, Math.min(areaRect.height - wagonSize.height, newTop));
-
+        newLeft = Math.max(0, Math.min(areaRect.width - dragging.offsetWidth, newLeft));
+        newTop = Math.max(0, Math.min(areaRect.height - dragging.offsetHeight, newTop));
+      
         dragging.style.left = newLeft + "px";
         dragging.style.top = newTop + "px";
       }
 
+      
       function onPointerUp(e) {
         if (!dragging) return;
-
+        if (e.pointerId !== activePointerId) return;
+      
+        e.preventDefault();
+      
+        if (dragging.releasePointerCapture) {
+          try {
+            dragging.releasePointerCapture(activePointerId);
+          } catch (err) {
+            // иногда бросает ошибку, просто игнорим
+          }
+        }
+      
         const wagon = dragging;
+        activePointerId = null;
+      
         const wagonNumber = parseInt(wagon.dataset.number, 10);
-
+      
         let snapped = false;
         const wagonRect = wagon.getBoundingClientRect();
-
+      
         for (const slot of slots) {
           const slotNumber = parseInt(slot.dataset.number, 10);
           if (slotNumber !== wagonNumber) continue;
-
+      
           const slotRect = slot.getBoundingClientRect();
-
+      
           const wagonCenter = {
             x: wagonRect.left + wagonRect.width / 2,
             y: wagonRect.top + wagonRect.height / 2
@@ -543,38 +599,40 @@
             x: slotRect.left + slotRect.width / 2,
             y: slotRect.top + slotRect.height / 2
           };
-
+      
           const dx = wagonCenter.x - slotCenter.x;
           const dy = wagonCenter.y - slotCenter.y;
-          const distance = Math.sqrt(dx*dx + dy*dy);
-
+          const distance = Math.sqrt(dx * dx + dy * dy);
+      
           const snapRadius = Math.min(slotRect.width, slotRect.height) * 0.8;
-
+      
           if (distance < snapRadius) {
-            // Снэп в слот
             const areaRect = gameArea.getBoundingClientRect();
             const left = slotCenter.x - areaRect.left - wagonRect.width / 2;
             const top = slotCenter.y - areaRect.top - wagonRect.height / 2;
-
+      
             wagon.style.left = left + "px";
             wagon.style.top = top + "px";
             wagon.dataset.locked = "true";
             wagon.classList.add('locked');
             slot.classList.add('correct');
             snapped = true;
-
+      
             placedCount++;
             playDing();
-            spawnFirework(slotCenter.x - areaRect.left, slotCenter.y - areaRect.top);
-
+            spawnFirework(
+              slotCenter.x - areaRect.left,
+              slotCenter.y - areaRect.top
+            );
+      
             if (placedCount === NUM_WAGONS) {
               onAllPlaced();
             }
+      
             break;
           }
         }
-
-        // вернуть z-index
+      
         wagon.style.zIndex = 4;
         dragging = null;
       }
