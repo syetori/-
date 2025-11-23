@@ -33,19 +33,16 @@
       background: #4b6ea8;
     }
 
-   .game-area {
+    .game-area {
       position: relative;
       width: 100%;
       height: 100%;
-      /* TODO: сюда поставь фон с рельсами */
-      background-image: url("https://files.catbox.moe/4dx8jm.jpg");
+      background-image: url("https://files.catbox.moe/ptxo8a.jpg");
       background-size: cover;
       background-position: center;
-      touch-action: none; /* <- ВАЖНО ДЛЯ ПЛАНШЕТА */
+      touch-action: none;
     }
 
-
-    /* Полупрозрачная подсказка сверху (можно убрать при желании) */
     .hint-bar {
       position: absolute;
       top: 8px;
@@ -58,17 +55,14 @@
       z-index: 5;
     }
 
-    /* Зона рельс и паровоза (центр по высоте) */
     .rails-zone {
       position: absolute;
       left: 5%;
       right: 5%;
       top: 40%;
       height: 22%;
-      /* Рельсы обычно будут на фоне, тут просто зона для слотов */
     }
 
-    /* Паровоз спереди слева */
     #train {
       position: absolute;
       bottom: -20px;
@@ -81,33 +75,6 @@
       z-index: 3;
     }
 
-    /* Облако-диалог над паровозом */
-    .speech-bubble {
-      position: absolute;
-      bottom: 120px;
-      left: 2%;
-      transform: none;
-      max-width: 260px;
-      padding: 10px 14px;
-      background: rgba(255,255,255,0.9);
-      color: #222;
-      border-radius: 16px;
-      font-size: 14px;
-      line-height: 1.3;
-      z-index: 6;
-    }
-
-    .speech-bubble::after {
-      content: "";
-      position: absolute;
-      bottom: -10px;
-      left: 25px;
-      border-width: 10px 10px 0 10px;
-      border-style: solid;
-      border-color: rgba(255,255,255,0.9) transparent transparent transparent;
-    }
-
-    /* Контейнер слотов за паровозом */
     .slots-row {
       position: absolute;
       left: 14%;
@@ -147,7 +114,6 @@
       text-shadow: 0 0 3px rgba(0,0,0,0.7);
     }
 
-    /* Вагоны */
     .wagon {
       position: absolute;
       width: 130px;
@@ -165,14 +131,7 @@
       cursor: grab;
       z-index: 4;
       transition: box-shadow 0.15s, transform 0.1s;
-      /* TODO: сюда можно добавить фон-вагон PNG
-         background-image: url("WAGON_1.png");
-         background-size: contain;
-         background-position: center;
-         background-repeat: no-repeat;
-         (номер тогда можно оставить или убрать)
-      */
-        touch-action: none;
+      touch-action: none;
     }
 
     .wagon:active {
@@ -187,7 +146,6 @@
       transform: none !important;
     }
 
-    /* Оверлей с видео */
     .video-overlay {
       position: absolute;
       inset: 0;
@@ -217,7 +175,6 @@
       display: block;
     }
 
-    /* Экран победы */
     .win-overlay {
       position: absolute;
       inset: 0;
@@ -271,7 +228,6 @@
       box-shadow: 0 3px 10px rgba(0,0,0,0.6);
     }
 
-    /* Простейший салют */
     .firework {
       position: absolute;
       width: 6px;
@@ -320,7 +276,6 @@
       100% { text-shadow: 0 0 25px rgba(255,255,0,0.9); }
     }
 
-    /* Чтобы вагоны не вылезали за пределы */
     .game-area {
       overflow: hidden;
     }
@@ -335,18 +290,11 @@
 
       <div class="rails-zone" id="railsZone">
         <div id="train"></div>
-        <div class="slots-row" id="slotsRow">
-          <!-- Слоты создаются скриптом -->
-        </div>
+        <div class="slots-row" id="slotsRow"></div>
       </div>
 
-      <!-- Вагоны создаются скриптом -->
-      
-      <!-- Оверлей с видео благодарности -->
       <div class="video-overlay" id="videoOverlay">
         <div class="video-wrapper">
-          <!-- TODO: поставь сюда своё видео (примерно 8 секунд),
-               можно удалить controls если они не нужны -->
           <video id="winVideo" preload="auto">
             <source src="https://files.catbox.moe/b3j3rh.mp4" type="video/mp4" />
             Браузер видеоны қолдамайды.
@@ -354,7 +302,6 @@
         </div>
       </div>
 
-      <!-- Экран победы -->
       <div class="win-overlay" id="winOverlay">
         <div class="win-title">Жеңіс!!!</div>
         <div class="win-subtitle">Паровозикке барлық вагонды тауып бердік!</div>
@@ -369,41 +316,37 @@
       const wagonSize = { width: 130, height: 90 };
       const wagons = [];
       const slots = [];
-      
+
       let placedCount = 0;
       let dragging = null;
       let offsetX = 0;
       let offsetY = 0;
-      let activePointerId = null; // <- добавили
+      let activePointerId = null;
 
       const gameArea = document.getElementById('gameArea');
       const railsZone = document.getElementById('railsZone');
       const slotsRow = document.getElementById('slotsRow');
-      const dingSound = document.getElementById('dingSound');
       const videoOverlay = document.getElementById('videoOverlay');
       const winVideo = document.getElementById('winVideo');
       const winOverlay = document.getElementById('winOverlay');
       const restartBtn = document.getElementById('restartBtn');
-      const speechBubble = document.getElementById('speechBubble');
       const trainEl = document.getElementById('train');
-      // 👉 список твоих PNG/WEBP-файлов вагонов по порядку
+
       const WAGON_IMAGES = [
-        "https://files.catbox.moe/l78t16.webp", // вагон 1
-        "https://files.catbox.moe/dk7afn.webp", // вагон 2
-        "https://files.catbox.moe/n5yth4.webp", // вагон 3
-        "https://files.catbox.moe/bdmprg.webp", // вагон 4
-        "https://files.catbox.moe/qktikp.webp", // вагон 5
-        "https://files.catbox.moe/iwb57t.webp", // вагон 6
-        "https://files.catbox.moe/58kcbn.webp", // вагон 7
-        "https://files.catbox.moe/d4tyw7.webp", // вагон 8
-        "https://files.catbox.moe/lyjclu.webp", // вагон 9
-        "https://files.catbox.moe/wfxntq.webp"  // вагон 10
+        "https://files.catbox.moe/v520sk.webp",
+        "https://files.catbox.moe/8g4mn3.webp",
+        "https://files.catbox.moe/agx2nk.webp",
+        "https://files.catbox.moe/wbn5qf.webp",
+        "https://files.catbox.moe/1mug31.webp",
+        "https://files.catbox.moe/9ifr4t.webp",
+        "https://files.catbox.moe/sd730a.webp",
+        "https://files.catbox.moe/9kfv0n.webp",
+        "https://files.catbox.moe/scrw9h.webp",
+        "https://files.catbox.moe/vqjlzw.webp"
       ];
-      const TRAIN_SAD = "https://files.catbox.moe/0mv7b7.webp";
-      const TRAIN_HAPPY = "https://files.catbox.moe/db5b6h.webp";
+      const TRAIN_SAD = "https://files.catbox.moe/j825ng.webp";
+      const TRAIN_HAPPY = "https://files.catbox.moe/bxs3r0.webp";
 
-
-      // Создаём слоты и подписи
       function createSlots() {
         slotsRow.innerHTML = "";
         slots.length = 0;
@@ -422,9 +365,7 @@
         }
       }
 
-      // Создаём вагоны
       function createWagons() {
-        // удалить старые
         for (const w of wagons) {
           if (w.element && w.element.parentNode) {
             w.element.parentNode.removeChild(w.element);
@@ -437,165 +378,133 @@
           wagonEl.className = 'wagon';
           wagonEl.dataset.number = i;
           wagonEl.dataset.locked = "false";
-          
-          // 👉 ставим PNG как фон
+
           wagonEl.style.backgroundImage = `url("${WAGON_IMAGES[i - 1]}")`;
           wagonEl.style.backgroundSize = "contain";
           wagonEl.style.backgroundRepeat = "no-repeat";
           wagonEl.style.backgroundPosition = "center";
-
 
           gameArea.appendChild(wagonEl);
           wagons.push({ number: i, element: wagonEl });
         }
       }
 
-      // Рандомные позиции вагонов (сверху и снизу, НЕ по центру, где рельсы)
       function randomizeWagonPositions() {
         const areaRect = gameArea.getBoundingClientRect();
         const railsRect = railsZone.getBoundingClientRect();
-        const bubble = document.getElementById('speechBubble');
-        const bubbleRect = bubble ? bubble.getBoundingClientRect() : null;
-      
         const margin = 10;
-      
+
         wagons.forEach(w => {
           const el = w.element;
           el.classList.remove('locked');
           el.dataset.locked = "false";
-      
+
           const placeOnTop = Math.random() < 0.5;
           let x, y;
-      
+
           const minX = areaRect.left + margin;
           const maxX = areaRect.right - margin - wagonSize.width;
-      
+
           if (placeOnTop) {
-            // верхняя зона, но не залезаем на диалоговое окно
-            let minY = areaRect.top + margin;
+            const minY = areaRect.top + margin;
             let maxY = railsRect.top - margin - wagonSize.height;
-      
-            if (bubbleRect) {
-              // пробуем ограничить верх так, чтобы не пересечься с пузырём
-              const candidateMaxY = bubbleRect.top - margin - wagonSize.height;
-              if (candidateMaxY > minY) {
-                maxY = candidateMaxY;
-              }
-            }
-      
-            if (maxY < minY) {
-              // если вдруг места почти нет — откатываемся к старой логике
-              maxY = railsRect.top - margin - wagonSize.height;
-            }
-      
-            y = randomBetween(minY, maxY);
-          } else {
-            // нижняя зона как раньше
-            const minY = railsRect.bottom + margin;
-            let maxY = areaRect.bottom - margin - wagonSize.height;
-      
             if (maxY < minY) {
               maxY = minY;
             }
-      
+            y = randomBetween(minY, maxY);
+          } else {
+            const minY = railsRect.bottom + margin;
+            let maxY = areaRect.bottom - margin - wagonSize.height;
+            if (maxY < minY) {
+              maxY = minY;
+            }
             y = randomBetween(minY, maxY);
           }
-      
+
           x = randomBetween(minX, maxX);
-      
+
           const gameRect = gameArea.getBoundingClientRect();
           el.style.left = (x - gameRect.left) + "px";
           el.style.top = (y - gameRect.top) + "px";
         });
       }
 
-
       function randomBetween(min, max) {
         if (max < min) max = min;
         return Math.random() * (max - min) + min;
       }
 
-      // Drag & drop (мышь + тач)
       function initDragging() {
-        // Слушаем всё в пределах игрового поля
         gameArea.addEventListener('pointerdown', onPointerDown);
         gameArea.addEventListener('pointermove', onPointerMove);
         gameArea.addEventListener('pointerup', onPointerUp);
         gameArea.addEventListener('pointercancel', onPointerUp);
       }
 
-
       function onPointerDown(e) {
         const target = e.target.closest('.wagon');
         if (!target) return;
         if (target.dataset.locked === "true") return;
-      
-        e.preventDefault(); // не даём странице скроллиться/зумить
-      
+
+        e.preventDefault();
+
         dragging = target;
         activePointerId = e.pointerId;
-      
+
         const rect = dragging.getBoundingClientRect();
         offsetX = e.clientX - rect.left;
         offsetY = e.clientY - rect.top;
-      
+
         dragging.style.zIndex = 10;
-      
-        // захватываем события этого пальца/стилуса
+
         if (dragging.setPointerCapture) {
           dragging.setPointerCapture(activePointerId);
         }
       }
-      
-      
+
       function onPointerMove(e) {
         if (!dragging) return;
         if (e.pointerId !== activePointerId) return;
-      
-        e.preventDefault(); // блокируем скролл при движении
-      
+
+        e.preventDefault();
+
         const areaRect = gameArea.getBoundingClientRect();
-      
+
         let newLeft = e.clientX - areaRect.left - offsetX;
         let newTop = e.clientY - areaRect.top - offsetY;
-      
-        // ограничиваем внутри поля
+
         newLeft = Math.max(0, Math.min(areaRect.width - dragging.offsetWidth, newLeft));
         newTop = Math.max(0, Math.min(areaRect.height - dragging.offsetHeight, newTop));
-      
+
         dragging.style.left = newLeft + "px";
         dragging.style.top = newTop + "px";
       }
 
-      
       function onPointerUp(e) {
         if (!dragging) return;
         if (e.pointerId !== activePointerId) return;
-      
+
         e.preventDefault();
-      
+
         if (dragging.releasePointerCapture) {
           try {
             dragging.releasePointerCapture(activePointerId);
-          } catch (err) {
-            // иногда бросает ошибку, просто игнорим
-          }
+          } catch (err) {}
         }
-      
+
         const wagon = dragging;
         activePointerId = null;
-      
+
         const wagonNumber = parseInt(wagon.dataset.number, 10);
-      
-        let snapped = false;
+
         const wagonRect = wagon.getBoundingClientRect();
-      
+
         for (const slot of slots) {
           const slotNumber = parseInt(slot.dataset.number, 10);
           if (slotNumber !== wagonNumber) continue;
-      
+
           const slotRect = slot.getBoundingClientRect();
-      
+
           const wagonCenter = {
             x: wagonRect.left + wagonRect.width / 2,
             y: wagonRect.top + wagonRect.height / 2
@@ -604,52 +513,40 @@
             x: slotRect.left + slotRect.width / 2,
             y: slotRect.top + slotRect.height / 2
           };
-      
+
           const dx = wagonCenter.x - slotCenter.x;
           const dy = wagonCenter.y - slotCenter.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-      
+
           const snapRadius = Math.min(slotRect.width, slotRect.height) * 0.8;
-      
+
           if (distance < snapRadius) {
             const areaRect = gameArea.getBoundingClientRect();
             const left = slotCenter.x - areaRect.left - wagonRect.width / 2;
             const top = slotCenter.y - areaRect.top - wagonRect.height / 2;
-      
+
             wagon.style.left = left + "px";
             wagon.style.top = top + "px";
             wagon.dataset.locked = "true";
             wagon.classList.add('locked');
             slot.classList.add('correct');
-            snapped = true;
-      
+
             placedCount++;
-            playDing();
             spawnFirework(
               slotCenter.x - areaRect.left,
               slotCenter.y - areaRect.top
             );
-      
+
             if (placedCount === NUM_WAGONS) {
               onAllPlaced();
             }
-      
+
             break;
           }
         }
-      
+
         wagon.style.zIndex = 4;
         dragging = null;
-      }
-
-      function playDing() {
-        if (!dingSound) return;
-        try {
-          dingSound.currentTime = 0;
-          dingSound.play();
-        } catch (e) {
-          // если браузер не даёт автоплей
-        }
       }
 
       function spawnFirework(x, y) {
@@ -665,47 +562,30 @@
       }
 
       function onAllPlaced() {
-        // паровоз становится веселым
         if (trainEl) {
           trainEl.style.backgroundImage = `url("${TRAIN_HAPPY}")`;
         }
-        // убираем фразу помощи, он уже благодарит в видео
-        if (speechBubble) {
-          speechBubble.style.display = 'none';
-        }
 
-        // Показываем видео
         videoOverlay.classList.add('active');
 
         if (winVideo) {
           try {
             winVideo.currentTime = 0;
             winVideo.play();
-          } catch (e) {
-            // если автоплей заблокирован – ок, юзер сам запустит
-          }
+          } catch (e) {}
 
           winVideo.onended = function() {
             videoOverlay.classList.remove('active');
             showWinOverlay();
           };
         } else {
-          // на всякий случай, если видео нет – просто сразу показываем победу
           showWinOverlay();
         }
       }
 
       function showWinOverlay() {
         winOverlay.classList.add('active');
-      
-        // победный звук
-        const ws = document.getElementById('winSound');
-        if (ws) {
-          ws.currentTime = 0;
-          ws.play();
-        }
-      
-        // бонус: несколько салютов
+
         const areaRect = gameArea.getBoundingClientRect();
         for (let i = 0; i < 8; i++) {
           setTimeout(() => {
@@ -716,49 +596,36 @@
         }
       }
 
-
       function resetGame() {
         placedCount = 0;
         winOverlay.classList.remove('active');
-      
+
         slots.forEach(slot => slot.classList.remove('correct'));
-      
-        if (speechBubble) {
-          speechBubble.style.display = '';
-        }
-      
-        // снова грустный
+
         if (trainEl) {
           trainEl.style.backgroundImage = `url("${TRAIN_SAD}")`;
         }
-      
+
         randomizeWagonPositions();
       }
 
-
-      // Кнопка "Басынан бастау"
       restartBtn.addEventListener('click', resetGame);
 
-      // Инициализация
       window.addEventListener('load', () => {
         createSlots();
         createWagons();
         randomizeWagonPositions();
         initDragging();
-      
+
         if (trainEl) {
           trainEl.style.backgroundImage = `url("${TRAIN_SAD}")`;
         }
       });
 
-
-      // при ресайзе окна слегка поправим позиции (чтоб дальше не жило совсем неправильно)
       window.addEventListener('resize', () => {
-        // просто раскидаем заново
         randomizeWagonPositions();
       });
     })();
   </script>
 </body>
 </html>
-
